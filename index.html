@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>봉지암의 여행 ✈️</title>
+    <style>
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #ffffff;
+            color: #333;
+        }
+
+        header {
+            /* 📸 한글 깨짐 방지를 위해 이미지 이름을 영어로 연동했습니다. */
+            background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('./bongjiphoto.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            height: 400px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            color: white;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 3rem;
+            font-weight: 800;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        header p {
+            margin-top: 1rem;
+            font-size: 1.2rem;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 3rem 1rem;
+        }
+
+        .upload-section {
+            background: #f9f9f9;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            margin-bottom: 3rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            border: 1px solid #eee;
+        }
+
+        .upload-section h2 {
+            margin-top: 0;
+            font-size: 1.4rem;
+            color: #2c3e50;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 0.5rem;
+        }
+
+        input[type="file"], input[type="text"], textarea {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 1rem;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+            padding-bottom: 4rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+            transition: transform 0.3s ease;
+            border: 1px solid #eee;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card img {
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .card-content {
+            padding: 1.5rem;
+        }
+
+        .card-author {
+            font-size: 0.95rem;
+            color: #3498db;
+            margin: 0 0 0.5rem 0;
+            font-weight: 700;
+        }
+
+        .card-desc {
+            font-size: 0.95rem;
+            color: #555;
+            margin: 0;
+            line-height: 1.5;
+        }
+        
+        .empty-message {
+            grid-column: 1 / -1;
+            text-align: center;
+            color: #999;
+            padding: 4rem;
+            background: #f9f9f9;
+            border-radius: 12px;
+            border: 2px dashed #ddd;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🎒 봉지암의 여행</h1>
+        <p>우리들의 즐거웠던 추억, 여기에 다 모아보자!</p>
+    </header>
+
+    <div class="container">
+        <div class="upload-section">
+            <h2>새로운 추억 올리기</h2>
+            <input type="file" id="photoInput" accept="image/*">
+            <input type="text" id="authorInput" placeholder="누가 올리는 건가요? (예: 봉지암 총무)">
+            <textarea id="descInput" placeholder="이 사진에 얽힌 비하인드 스토리를 적어주세요!"></textarea>
+            <button id="uploadBtn" onclick="uploadPhoto()">사진 등록하기</button>
+        </div>
+
+        <div class="gallery" id="galleryContainer">
+            <div class="empty-message" id="emptyMessage">
+                추억을 불러오는 중이거나 아직 사진이 없습니다...
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+
+        // ⭕ bongjam -> bongjiam 으로 알파벳 'i' 오타를 정확히 수정 완료했습니다!
+        const firebaseConfig = {
+            apiKey: "AIzaSyBhqb1xAdLCXLXV7TvnVBjfvzZKHN0AUPU",
+            authDomain: "bongjiam.firebaseapp.com",
+            projectId: "bongjiam",
+            storageBucket: "bongjiam.firebasestorage.app",
+            messagingSenderId: "254099617585",
+            appId: "1:254099617585:web:2c6c1fd91ef425bb78e210",
+            measurementId: "G-RV8JE367T6"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        // 1. 실시간으로 데이터베이스에서 사진 목록 받아오기
+        const q = query(collection(db, "albums"), orderBy("createdAt", "desc"));
+        onSnapshot(q, (querySnapshot) => {
+            const galleryContainer = document.getElementById('galleryContainer');
+            galleryContainer.innerHTML = ''; 
+
+            if (querySnapshot.empty) {
+                galleryContainer.innerHTML = `
+                    <div class="empty-message" id="emptyMessage">
+                        아직 올라온 사진이 없습니다.<br>첫 번째 추억을 장식해 보세요!
+                    </div>`;
+                return;
+            }
+
+            querySnapshot.forEach((doc) => {
+                const data = doc.data();
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <img src="${data.imageUrl}" alt="여행 사진">
+                    <div class="card-content">
+                        <p class="card-author">📸 ${data.author}</p>
+                        <p class="card-desc">${data.description}</p>
+                    </div>
+                `;
+                galleryContainer.appendChild(card);
+            });
+        });
+
+        // 2. 고용량 사진도 문제없는 업로드 함수
+        window.uploadPhoto = async function() {
+            const photoInput = document.getElementById('photoInput');
+            const authorInput = document.getElementById('authorInput');
+            const descInput = document.getElementById('descInput');
+            const uploadBtn = document.getElementById('uploadBtn');
+
+            if (photoInput.files.length === 0) {
+                alert('사진을 선택해주세요!');
+                return;
+            }
+
+            const file = photoInput.files[0];
+            const author = authorInput.value.trim() || '익명의 친구';
+            const description = descInput.value.trim() || '추억의 한 장';
+
+            try {
+                uploadBtn.disabled = true;
+                uploadBtn.innerText = "업로드 중...";
+
+                // [Step 1] Firebase Storage 파일 저장소에 이미지 파일 원본 업로드
+                const storageRef = ref(storage, 'albums/' + Date.now() + '_' + file.name);
+                await uploadBytes(storageRef, file);
+                
+                // [Step 2] 업로드된 이미지의 고유 인터넷 주소(URL) 따오기
+                const imageUrl = await getDownloadURL(storageRef);
+
+                // [Step 3] 데이터베이스(Firestore)에 텍스트 정보와 이미지 주소 저장
+                await addDoc(collection(db, "albums"), {
+                    imageUrl: imageUrl,
+                    author: author,
+                    description: description,
+                    createdAt: new Date()
+                });
+
+                // 입력 폼 초기화
+                photoInput.value = '';
+                authorInput.value = '';
+                descInput.value = '';
+                
+                alert('추억이 성공적으로 저장되었습니다! 🎉');
+            } catch (error) {
+                console.error("Error: ", error);
+                alert('업로드 실패ㅠ 에러내용: ' + error.message);
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.innerText = "사진 등록하기";
+            }
+        }
+    </script>
+</body>
+</html>
